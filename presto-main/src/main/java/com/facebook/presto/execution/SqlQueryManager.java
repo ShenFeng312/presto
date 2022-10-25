@@ -122,6 +122,7 @@ public class SqlQueryManager
         queryTracker.start();
         queryManagementExecutor.scheduleWithFixedDelay(() -> {
             try {
+                //刷新内存
                 enforceMemoryLimits();
             }
             catch (Throwable e) {
@@ -366,14 +367,16 @@ public class SqlQueryManager
     {
         for (QueryExecution query : queryTracker.getAllQueries()) {
             Duration cpuTime = query.getTotalCpuTime();
+            QueryLimit<Duration> durationQueryLimit = query.getResourceGroupQueryLimits()
+                    .flatMap(ResourceGroupQueryLimits::getCpuTimeLimit)
+                    .map(rgLimit -> createDurationLimit(rgLimit, RESOURCE_GROUP))
+                    .orElse(null);
             QueryLimit<Duration> queryMaxCpuTimeLimit = getMinimum(
                     createDurationLimit(maxQueryCpuTime, SYSTEM),
-                    query.getResourceGroupQueryLimits()
-                            .flatMap(ResourceGroupQueryLimits::getCpuTimeLimit)
-                            .map(rgLimit -> createDurationLimit(rgLimit, RESOURCE_GROUP))
-                            .orElse(null),
+                    durationQueryLimit,
                     createDurationLimit(getQueryMaxCpuTime(query.getSession()), QUERY));
             if (cpuTime.compareTo(queryMaxCpuTimeLimit.getLimit()) > 0) {
+                System.out.println("query fail");
                 query.fail(new ExceededCpuLimitException(queryMaxCpuTimeLimit.getLimit(), queryMaxCpuTimeLimit.getLimitSource().name()));
             }
         }

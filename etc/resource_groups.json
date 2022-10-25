@@ -6,6 +6,11 @@
       "hardConcurrencyLimit": 100,
       "maxQueued": 1000,
       "schedulingPolicy": "weighted",
+      "softCpuLimit": "2m",
+      "hardCpuLimit": "4m",
+      "perQueryLimits": {
+        "cpuTimeLimit": "10s"
+      },
       "jmxExport": true
     },
     {
@@ -13,6 +18,8 @@
       "softMemoryLimit": "100%",
       "hardConcurrencyLimit": 50,
       "maxQueued": 100,
+      "softCpuLimit": "2m",
+      "hardCpuLimit": "4m",
       "schedulingPolicy": "query_priority",
       "jmxExport": true
     }

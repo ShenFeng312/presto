@@ -222,6 +222,7 @@ public abstract class AbstractResourceConfigurationManager
             else {
                 limit = match.getSoftCpuLimit().get();
             }
+            //1秒种内可以运行多少毫秒
             long rate = (long) Math.min(1000.0 * limit.toMillis() / (double) getCpuQuotaPeriod().get().toMillis(), Long.MAX_VALUE);
             rate = Math.max(1, rate);
             group.setCpuQuotaGenerationMillisPerSecond(rate);

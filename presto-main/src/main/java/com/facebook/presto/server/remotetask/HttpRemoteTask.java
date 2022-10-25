@@ -436,7 +436,7 @@ public final class HttpRemoteTask
             // to start we just need to trigger an update
             started.set(true);
             scheduleUpdate();
-
+            //定是拉取任务信息
             taskStatusFetcher.start();
             taskInfoFetcher.start();
         }

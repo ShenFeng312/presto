@@ -112,6 +112,7 @@ public class InternalResourceGroup
     @GuardedBy("root")
     private long hardCpuLimitMillis = Long.MAX_VALUE;
     @GuardedBy("root")
+    //一秒内可以运行多少毫秒
     private long cpuQuotaGenerationMillisPerSecond = Long.MAX_VALUE;
     @GuardedBy("root")
     private int schedulingWeight = DEFAULT_WEIGHT;
@@ -779,10 +780,13 @@ public class InternalResourceGroup
             if (!query.getErrorCode().isPresent() || query.getErrorCode().get().getType() == USER_ERROR) {
                 InternalResourceGroup group = this;
                 while (group != null) {
+                    //把查询用的cpu 添加到当前
                     group.cpuUsageMillis = saturatedAdd(group.cpuUsageMillis, query.getTotalCpuTime().toMillis());
                     group = group.parent.orElse(null);
                 }
             }
+
+            //队列变更
             if (runningQueries.contains(query)) {
                 runningQueries.remove(query);
                 InternalResourceGroup group = this;
@@ -806,6 +810,10 @@ public class InternalResourceGroup
     // Memory usage stats are expensive to maintain, so this method must be called periodically to update them
     protected void internalRefreshStats()
     {
+
+
+        //查询每个查询的内存消耗  汇总 内存消耗有QueryManager 刷新
+        // @see com.facebook.presto.execution.SqlQueryManager.start
         checkState(Thread.holdsLock(root), "Must hold lock to refresh stats");
         synchronized (root) {
             if (subGroups.isEmpty()) {
@@ -839,12 +847,17 @@ public class InternalResourceGroup
     {
         checkState(Thread.holdsLock(root), "Must hold lock to generate cpu quota");
         synchronized (root) {
+            //和设置的相乘  经过的秒 * 一秒内可运行的毫秒数
             long newQuota = saturatedMultiply(elapsedSeconds, cpuQuotaGenerationMillisPerSecond);
+            //cpuUsageMillis 已经使用的毫秒数 - 新分配秒数
             cpuUsageMillis = saturatedSubtract(cpuUsageMillis, newQuota);
+            System.out.println("cpuUsageMillis"+cpuUsageMillis);
             if (cpuUsageMillis < 0 || cpuUsageMillis == Long.MAX_VALUE) {
+                //CPU 清零
                 cpuUsageMillis = 0;
             }
             for (InternalResourceGroup group : subGroups.values()) {
+                //递归
                 group.internalGenerateCpuQuota(elapsedSeconds);
             }
         }

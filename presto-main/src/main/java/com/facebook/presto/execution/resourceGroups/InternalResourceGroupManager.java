@@ -59,6 +59,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BinaryOperator;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 
@@ -260,7 +261,9 @@ public final class InternalResourceGroupManager<C>
     private void refreshResourceGroupRuntimeInfo()
     {
         try {
+            //获取 resourceGroupInfos
             List<ResourceGroupRuntimeInfo> resourceGroupInfos = resourceGroupService.getResourceGroupInfo();
+            //转化为map 设置到 resourceGroupRuntimeInfos
             resourceGroupRuntimeInfos.set(resourceGroupInfos.stream().collect(toImmutableMap(ResourceGroupRuntimeInfo::getResourceGroupId, i -> i)));
             lastUpdatedResourceGroupRuntimeInfo.set(currentTimeMillis());
             boolean updatedSnapshot = updateResourceGroupsSnapshot();
@@ -277,6 +280,7 @@ public final class InternalResourceGroupManager<C>
     {
         long nanoTime = System.nanoTime();
         long elapsedSeconds = NANOSECONDS.toSeconds(nanoTime - lastCpuQuotaGenerationNanos.get());
+        //重新设置最后一次刷新CPU的时间
         if (elapsedSeconds > 0) {
             // Only advance our clock on second boundaries to avoid calling generateCpuQuota() too frequently, and because it would be a no-op for zero seconds.
             lastCpuQuotaGenerationNanos.addAndGet(elapsedSeconds * 1_000_000_000L);
@@ -287,12 +291,14 @@ public final class InternalResourceGroupManager<C>
         }
 
         if (maxTotalRunningTaskCountToNotExecuteNewQuery != Integer.MAX_VALUE) {
+            //队列是否超过限制
             taskLimitExceeded.set(getTotalRunningTaskCount() > maxTotalRunningTaskCountToNotExecuteNewQuery);
         }
-
+        //递归刷新
         for (RootInternalResourceGroup group : rootGroups) {
             try {
                 if (elapsedSeconds > 0) {
+                    //刷新CPU elapsedSeconds 距离上次刷新CPU的时间
                     group.generateCpuQuota(elapsedSeconds);
                 }
             }
@@ -301,6 +307,7 @@ public final class InternalResourceGroupManager<C>
             }
             try {
                 group.setTaskLimitExceeded(taskLimitExceeded.get());
+                //主要计算resource中的内存
                 group.processQueuedQueries();
             }
             catch (RuntimeException e) {
@@ -314,6 +321,9 @@ public final class InternalResourceGroupManager<C>
         if (!isResourceManagerEnabled) {
             return false;
         }
+        //如果resourceGroupRuntimeInfos 和 resourceGroupRuntimeInfosSnapshot 不一致就把 resourceGroupRuntimeInfosSnapshot设置为 resourceGroupRuntimeInfos
+        //并返回 resourceGroupRuntimeInfos
+        //如果两个一致就把resourceGroupRuntimeInfos设置为null 并返回 resourceGroupRuntimeInfos之前的值
         Map<ResourceGroupId, ResourceGroupRuntimeInfo> snapshotValue = resourceGroupRuntimeInfos.getAndAccumulate(
                 resourceGroupRuntimeInfosSnapshot.get(),
                 (current, update) -> current != update ? update : null);
@@ -396,6 +406,7 @@ public final class InternalResourceGroupManager<C>
         if (resourceGroupRuntimeInfo != null) {
             totalRunningQueries += resourceGroupRuntimeInfo.getRunningQueries() + resourceGroupRuntimeInfo.getDescendantRunningQueries();
         }
+        //计算是否等待需要在详细看下            ；理论；看了；看了；看看了；
         return totalRunningQueries >= (hardConcurrencyLimit * concurrencyThreshold) && lastUpdatedResourceGroupRuntimeInfo.getAsLong() <= resourceGroup.getLastRunningQueryStartTime();
     }
 

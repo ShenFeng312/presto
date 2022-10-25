@@ -190,15 +190,27 @@ public class MultilevelSplitQueue
     @GuardedBy("lock")
     private long getLevel0TargetTime()
     {
+        //获取第一个时间
         long level0TargetTime = levelScheduledTime[0].get();
+        //获取配置的乘数
         double currentMultiplier = levelTimeMultiplier;
 
         for (int level = 0; level < LEVEL_THRESHOLD_SECONDS.length; level++) {
+            //连除 l =0  currentMultiplier =  1
+            //连除 l =1  currentMultiplier =  1/2
+            //连除 l =2  currentMultiplier =  1/4
+            //连除 l =3  currentMultiplier =  1/8
+            //连除 l =4  currentMultiplier =  1/16
             currentMultiplier /= levelTimeMultiplier;
+            //第level 个时间  0, 1, 10, 60, 300
             long levelTime = levelScheduledTime[level].get();
+            //第一个时间和 每个level 下时间 /currentMultiplier 比较 最大值
+            //例如 0 0 选 0 0 1/(1/2) 选2  2 10/(1/4) 选 40  40 60 /(1/8) 选 480 480 300*16 选 4800
+            //获取最大值
             level0TargetTime = Math.max(level0TargetTime, (long) (levelTime / currentMultiplier));
         }
 
+        System.out.println("level0TargetTime"+level0TargetTime);
         return level0TargetTime;
     }
 

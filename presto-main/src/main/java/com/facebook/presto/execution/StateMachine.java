@@ -266,6 +266,7 @@ public class StateMachine<T>
         T currentState;
         synchronized (lock) {
             currentState = state;
+            System.out.println(state);
             inTerminalState = isTerminalState(currentState);
             if (!inTerminalState) {
                 stateChangeListeners.add(stateChangeListener);
